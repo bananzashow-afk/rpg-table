@@ -910,10 +910,6 @@ a {
   z-index: 1;
 }
 
-.sheet-hit.placing-text {
-  cursor: crosshair;
-}
-
 .sheet-field {
   position: absolute;
   z-index: 3;

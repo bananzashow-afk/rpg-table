@@ -67,7 +67,6 @@ export function CharacterSheetWindow({
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [placingText, setPlacingText] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('saved');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -142,7 +141,6 @@ export function CharacterSheetWindow({
     });
     setSelectedId(null);
     setEditingId(null);
-    setPlacingText(false);
   }
 
   async function markSaving(op: Promise<unknown>) {
@@ -259,18 +257,33 @@ export function CharacterSheetWindow({
   };
 
   const onBlankClick = (e: ReactPointerEvent) => {
-    if (e.button !== 0 || spaceDown || dragPan.current || !placingText) return;
+    if (e.button !== 0 || spaceDown || dragPan.current) return;
     if (pointers.current.size > 1) return;
-    const pos = clientToNorm(e.clientX, e.clientY);
-    if (!pos || !character) return;
+    setSelectedId(null);
     setEditingId(null);
+  };
+
+  const createTextCentered = () => {
+    if (!character) return;
+    let nx = 0.5;
+    let ny = 0.4;
+    const vp = viewportRef.current;
+    if (vp) {
+      const rect = vp.getBoundingClientRect();
+      const pos = clientToNorm(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (pos) {
+        nx = pos.x;
+        ny = pos.y;
+      }
+    }
+    const width = 0.28;
     const id = uuid();
     const block: SheetTextBlock = {
       id,
       page,
-      x: Math.min(0.92, Math.max(0, pos.x - 0.02)),
-      y: Math.min(0.97, Math.max(0, pos.y - 0.01)),
-      width: 0.28,
+      x: Math.min(0.72, Math.max(0, nx - width / 2)),
+      y: Math.min(0.97, Math.max(0, ny - 0.01)),
+      width,
       text: '',
       fontSize: DEFAULT_TEXT_FONT_SIZE,
       align: 'left',
@@ -278,7 +291,6 @@ export function CharacterSheetWindow({
     void markSaving(createTextBlock(characterId, block));
     setSelectedId(id);
     setEditingId(id);
-    setPlacingText(false);
   };
 
   const scheduleTextSave = useCallback(
@@ -336,15 +348,10 @@ export function CharacterSheetWindow({
         <div className="sheet-window-actions">
           <button
             type="button"
-            className={`btn ${placingText ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => {
-              setPlacingText((value) => !value);
-              setSelectedId(null);
-              setEditingId(null);
-            }}
-            aria-pressed={placingText}
+            className="btn btn-secondary"
+            onClick={createTextCentered}
           >
-            {placingText ? 'Нажми на лист' : '+ Текст'}
+            + Текст
           </button>
           <button type="button" className="btn btn-ghost" onClick={() => cyclePage(-1)} aria-label="Предыдущая страница">
             ←
@@ -488,7 +495,7 @@ export function CharacterSheetWindow({
           }}
         >
           <img src={SHEET_PAGE_SRC[page]} alt="" draggable={false} className="sheet-template" />
-          <div className={`sheet-hit ${placingText ? 'placing-text' : ''}`} onPointerDown={onBlankClick} />
+          <div className="sheet-hit" onPointerDown={onBlankClick} />
           {page === 1 && (
             <StructuredFields
               character={character}
