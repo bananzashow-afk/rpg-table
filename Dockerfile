@@ -2,6 +2,8 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+RUN apk add --no-cache python3 make g++ libc6-compat
+
 COPY package.json package-lock.json* ./
 COPY shared/package.json ./shared/
 COPY server/package.json ./server/
@@ -27,7 +29,7 @@ ENV PORT=3001
 ENV HOST=0.0.0.0
 ENV DATA_DIR=/data
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ libc6-compat
 
 COPY package.json package-lock.json* ./
 COPY shared/package.json ./shared/

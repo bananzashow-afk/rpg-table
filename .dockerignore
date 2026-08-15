@@ -8,5 +8,8 @@ node_modules
 transcripts_raw
 *.docx
 *.m4a
-*.txt
 ~$*
+scripts
+.cursor
+fly.toml
+docker-compose.yml
