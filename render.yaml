@@ -2,9 +2,8 @@
 # Sleeps after ~15 min idle; wakes in ~1 min on next visit.
 # WebSockets keep the free service awake while players are connected.
 #
-# 1) https://dashboard.render.com/register (через GitHub)
-# 2) New → Blueprint → этот репозиторий
-# 3) После деплоя выставь PUBLIC_URL = https://<имя>.onrender.com
+# Invite links are derived from the incoming request host, so no PUBLIC_URL
+# is needed here — the service works on whatever domain Render assigns.
 
 services:
   - type: web
@@ -24,5 +23,3 @@ services:
         value: /tmp/rpg-data
       - key: SESSION_TTL_MS
         value: '604800000'
-      - key: PUBLIC_URL
-        sync: false
