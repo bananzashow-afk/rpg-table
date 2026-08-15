@@ -910,6 +910,10 @@ a {
   z-index: 1;
 }
 
+.sheet-hit.placing-text {
+  cursor: crosshair;
+}
+
 .sheet-field {
   position: absolute;
   z-index: 3;
@@ -954,6 +958,20 @@ a {
 .sheet-text.editing {
   cursor: text;
   outline: 1px solid rgba(80, 50, 20, 0.55);
+}
+
+.sheet-text-resize {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid rgba(80, 50, 20, 0.7);
+  border-radius: 50%;
+  background: #fff6d9;
+  cursor: ew-resize;
 }
 
 .sheet-text textarea {

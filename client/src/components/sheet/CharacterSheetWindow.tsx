@@ -67,6 +67,7 @@ export function CharacterSheetWindow({
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [placingText, setPlacingText] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('saved');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -80,6 +81,9 @@ export function CharacterSheetWindow({
   const dragText = useRef<{ id: string; ox: number; oy: number } | null>(null);
   const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null);
+  const resizeText = useRef<{ id: string; x: number } | null>(null);
+  const resizeWidthRef = useRef<{ id: string; width: number } | null>(null);
+  const [resizeWidth, setResizeWidth] = useState<{ id: string; width: number } | null>(null);
   const resizeWin = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const textTimers = useRef(new Map<string, number>());
   const fileRef = useRef<HTMLInputElement>(null);
@@ -138,6 +142,7 @@ export function CharacterSheetWindow({
     });
     setSelectedId(null);
     setEditingId(null);
+    setPlacingText(false);
   }
 
   async function markSaving(op: Promise<unknown>) {
@@ -213,6 +218,15 @@ export function CharacterSheetWindow({
         setZoom(next);
       }
     }
+    if (resizeText.current) {
+      const pos = clientToNorm(e.clientX, e.clientY);
+      if (!pos) return;
+      const width = Math.min(0.98 - resizeText.current.x, Math.max(0.08, pos.x - resizeText.current.x));
+      const next = { id: resizeText.current.id, width };
+      resizeWidthRef.current = next;
+      setResizeWidth(next);
+      return;
+    }
     if (dragText.current) {
       const pos = clientToNorm(e.clientX, e.clientY);
       if (!pos) return;
@@ -232,13 +246,20 @@ export function CharacterSheetWindow({
     if (dragText.current && dropped && dropped.id === dragText.current.id) {
       void markSaving(moveTextBlock(characterId, dropped.id, dropped.x, dropped.y));
     }
+    const resized = resizeWidthRef.current;
+    if (resizeText.current && resized && resized.id === resizeText.current.id) {
+      void markSaving(updateTextBlock(characterId, resized.id, { width: resized.width }));
+    }
     dragText.current = null;
     dragPosRef.current = null;
     setDragPos(null);
+    resizeText.current = null;
+    resizeWidthRef.current = null;
+    setResizeWidth(null);
   };
 
   const onBlankClick = (e: ReactPointerEvent) => {
-    if (e.button !== 0 || spaceDown || dragPan.current) return;
+    if (e.button !== 0 || spaceDown || dragPan.current || !placingText) return;
     if (pointers.current.size > 1) return;
     const pos = clientToNorm(e.clientX, e.clientY);
     if (!pos || !character) return;
@@ -257,6 +278,7 @@ export function CharacterSheetWindow({
     void markSaving(createTextBlock(characterId, block));
     setSelectedId(id);
     setEditingId(id);
+    setPlacingText(false);
   };
 
   const scheduleTextSave = useCallback(
@@ -312,6 +334,18 @@ export function CharacterSheetWindow({
           </span>
         </div>
         <div className="sheet-window-actions">
+          <button
+            type="button"
+            className={`btn ${placingText ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => {
+              setPlacingText((value) => !value);
+              setSelectedId(null);
+              setEditingId(null);
+            }}
+            aria-pressed={placingText}
+          >
+            {placingText ? 'Нажми на лист' : '+ Текст'}
+          </button>
           <button type="button" className="btn btn-ghost" onClick={() => cyclePage(-1)} aria-label="Предыдущая страница">
             ←
           </button>
@@ -454,7 +488,7 @@ export function CharacterSheetWindow({
           }}
         >
           <img src={SHEET_PAGE_SRC[page]} alt="" draggable={false} className="sheet-template" />
-          <div className="sheet-hit" onPointerDown={onBlankClick} />
+          <div className={`sheet-hit ${placingText ? 'placing-text' : ''}`} onPointerDown={onBlankClick} />
           {page === 1 && (
             <StructuredFields
               character={character}
@@ -466,7 +500,11 @@ export function CharacterSheetWindow({
             <TextBlockView
               key={block.id}
               block={
-                dragPos && dragPos.id === block.id ? { ...block, x: dragPos.x, y: dragPos.y } : block
+                {
+                  ...block,
+                  ...(dragPos && dragPos.id === block.id ? { x: dragPos.x, y: dragPos.y } : {}),
+                  ...(resizeWidth && resizeWidth.id === block.id ? { width: resizeWidth.width } : {}),
+                }
               }
               selected={selectedId === block.id}
               editing={editingId === block.id}
@@ -484,6 +522,13 @@ export function CharacterSheetWindow({
                 const pos = clientToNorm(e.clientX, e.clientY);
                 if (!pos) return;
                 dragText.current = { id: block.id, ox: pos.x - block.x, oy: pos.y - block.y };
+              }}
+              onResizeStart={(e) => {
+                const pos = clientToNorm(e.clientX, e.clientY);
+                if (!pos) return;
+                e.stopPropagation();
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                resizeText.current = { id: block.id, x: block.x };
               }}
             />
           ))}
@@ -609,6 +654,7 @@ function TextBlockView({
   onCancel,
   onLocalText,
   onDragStart,
+  onResizeStart,
 }: {
   block: SheetTextBlock;
   selected: boolean;
@@ -619,6 +665,7 @@ function TextBlockView({
   onCancel: () => void;
   onLocalText: (text: string) => void;
   onDragStart: (e: ReactPointerEvent) => void;
+  onResizeStart: (e: ReactPointerEvent) => void;
 }) {
   const [text, setText] = useState(block.text);
   useEffect(() => {
@@ -672,6 +719,15 @@ function TextBlockView({
         />
       ) : (
         <span>{block.text || ' '}</span>
+      )}
+      {selected && !editing && (
+        <button
+          type="button"
+          className="sheet-text-resize"
+          aria-label="Изменить ширину текстового блока"
+          title="Потяните, чтобы изменить ширину"
+          onPointerDown={onResizeStart}
+        />
       )}
     </div>
   );
