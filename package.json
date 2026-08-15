@@ -1,0 +1,32 @@
+{
+  "name": "rpg-table",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Online D&D / tabletop RPG platform — rooms, roles, animated dice",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run build -w shared && concurrently -n shared,server,client -c magenta,cyan,green \"npm run dev -w shared\" \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "start": "npm run build && node --import tsx scripts/restart-server.mts",
+    "serve": "npm run start -w server",
+    "online": "node --import tsx scripts/online.mts",
+    "up": "concurrently -n server,tunnel -c cyan,magenta \"npm start\" \"npm run online\"",
+    "deploy:fly": "node --import tsx scripts/deploy-fly.mts",
+    "deploy:hint": "node --import tsx scripts/deploy-hint.mts",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
+    "test:unit": "node --import tsx shared/src/dice.test.ts",
+    "test:smoke": "node --import tsx server/scripts/smoke.mts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "localtunnel": "^2.0.2",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

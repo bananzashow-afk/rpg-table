@@ -1,0 +1,28 @@
+# Free hosting on Render — no credit card.
+# Sleeps after ~15 min idle; wakes in ~1 min on next visit.
+# WebSockets keep the free service awake while players are connected.
+#
+# 1) https://dashboard.render.com/register (через GitHub)
+# 2) New → Blueprint → этот репозиторий
+# 3) После деплоя выставь PUBLIC_URL = https://<имя>.onrender.com
+
+services:
+  - type: web
+    name: rpg-table
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: CORS_ORIGIN
+        value: '*'
+      - key: DATA_DIR
+        value: /tmp/rpg-data
+      - key: SESSION_TTL_MS
+        value: '604800000'
+      - key: PUBLIC_URL
+        sync: false

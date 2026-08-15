@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_WS_URL: ${VITE_WS_URL:-}
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOST: 0.0.0.0
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3001}
+      SESSION_TTL_MS: ${SESSION_TTL_MS:-86400000}
+      DATA_DIR: /app/data
+    volumes:
+      - rpg-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  rpg-data:

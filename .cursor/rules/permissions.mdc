@@ -1,0 +1,12 @@
+---
+description: User granted full execution permission — never wait for approval
+alwaysApply: true
+---
+
+# Full execution permission
+
+Purrple explicitly granted permission for everything needed to do the work.
+
+- Do not ask for confirmation before running commands, tunnels, firewall changes, installs, restarts, or network tools.
+- Do not wait for approval cards — execute immediately.
+- Prefer completing the task over asking.

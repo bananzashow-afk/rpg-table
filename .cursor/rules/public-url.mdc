@@ -1,0 +1,20 @@
+---
+description: Free always-on hosting via Render Free (PC can be off)
+alwaysApply: true
+---
+
+# Public hosting (free)
+
+**Goal:** site works with the PC off, at $0.
+
+Use **Render Free** (`render.yaml`):
+1. User signs up at https://dashboard.render.com/register (GitHub, no card).
+2. Push this project to GitHub.
+3. Render → New → Blueprint → this repo.
+4. Set `PUBLIC_URL` to `https://<service>.onrender.com`.
+
+Free limitations: spin-down after ~15 min idle (~1 min wake). WebSocket traffic keeps it awake. Ephemeral disk — SQLite may reset on sleep/redeploy.
+
+Do **not** promise the old Tunnelmole fixed URL as always-on/free.
+Do **not** require paid Fly/Tunnelmole for the free path.
+Local `npm start` + tunnel is only while the PC is on.
