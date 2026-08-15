@@ -944,6 +944,8 @@ a {
   cursor: grab;
   white-space: pre-wrap;
   word-break: break-word;
+  padding: 18px 6px 8px;
+  box-sizing: border-box;
 }
 
 .sheet-text.selected {
@@ -954,6 +956,65 @@ a {
 .sheet-text.editing {
   cursor: text;
   outline: 1px solid rgba(80, 50, 20, 0.55);
+}
+
+.sheet-text.dragging,
+.sheet-text:active:not(.editing) {
+  cursor: grabbing;
+}
+
+.sheet-text-chrome {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 16px;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.sheet-text.selected .sheet-text-chrome,
+.sheet-text.editing .sheet-text-chrome,
+.sheet-text:hover .sheet-text-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet-text-drag,
+.sheet-text-close {
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(80, 50, 20, 0.45);
+  border-radius: 4px;
+  background: #fff6d9;
+  color: #3a2a14;
+  font-size: 11px;
+  line-height: 1;
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-text-close {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sheet-text-close:hover {
+  background: #f2d0c0;
+}
+
+.sheet-text-body {
+  display: block;
+  min-height: 1.2em;
 }
 
 .sheet-text-resize {
@@ -975,12 +1036,14 @@ a {
   min-height: 1.4em;
   border: none;
   resize: none;
+  overflow: hidden;
   background: rgba(255, 250, 230, 0.7);
   color: #1a1510;
   font: inherit;
   text-align: inherit;
   padding: 0;
   outline: none;
+  box-sizing: border-box;
 }
 
 .sheet-resize {

@@ -525,10 +525,21 @@ export function CharacterSheetWindow({
               onCommit={() => setEditingId(null)}
               onCancel={() => setEditingId(null)}
               onLocalText={(text) => scheduleTextSave(block.id, text)}
+              onDelete={() => {
+                void markSaving(deleteTextBlock(characterId, block.id));
+                setSelectedId(null);
+                setEditingId(null);
+              }}
+              onWidthChange={(width) => {
+                void markSaving(updateTextBlock(characterId, block.id, { width }));
+              }}
               onDragStart={(e) => {
                 const pos = clientToNorm(e.clientX, e.clientY);
                 if (!pos) return;
+                setEditingId(null);
+                setSelectedId(block.id);
                 dragText.current = { id: block.id, ox: pos.x - block.x, oy: pos.y - block.y };
+                viewportRef.current?.setPointerCapture(e.pointerId);
               }}
               onResizeStart={(e) => {
                 const pos = clientToNorm(e.clientX, e.clientY);
@@ -660,6 +671,8 @@ function TextBlockView({
   onCommit,
   onCancel,
   onLocalText,
+  onDelete,
+  onWidthChange,
   onDragStart,
   onResizeStart,
 }: {
@@ -671,51 +684,201 @@ function TextBlockView({
   onCommit: () => void;
   onCancel: () => void;
   onLocalText: (text: string) => void;
+  onDelete: () => void;
+  onWidthChange: (width: number) => void;
   onDragStart: (e: ReactPointerEvent) => void;
   onResizeStart: (e: ReactPointerEvent) => void;
 }) {
   const [text, setText] = useState(block.text);
+  const [localWidth, setLocalWidth] = useState(block.width);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const holdTimer = useRef<number | null>(null);
+  const holdOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const dragging = useRef(false);
+  const widthTimer = useRef<number | null>(null);
+
   useEffect(() => {
     if (!editing) setText(block.text);
   }, [block.text, editing]);
 
+  useEffect(() => {
+    setLocalWidth(block.width);
+  }, [block.width]);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimer.current) window.clearTimeout(holdTimer.current);
+      if (widthTimer.current) window.clearTimeout(widthTimer.current);
+    };
+  }, []);
+
+  const fitContent = useCallback(
+    (value: string, baseWidth: number) => {
+      const root = rootRef.current;
+      const area = areaRef.current;
+      if (!root) return baseWidth;
+
+      if (area) {
+        area.style.height = 'auto';
+        area.style.height = `${Math.max(area.scrollHeight, block.fontSize * 1.4)}px`;
+      }
+
+      const canvas = root.offsetParent as HTMLElement | null;
+      if (!canvas || canvas.clientWidth <= 0) return baseWidth;
+
+      // Grow width when a single line overflows the box.
+      const probe = document.createElement('div');
+      probe.style.cssText = [
+        'position:absolute',
+        'visibility:hidden',
+        'white-space:pre',
+        `font:${getComputedStyle(root).font}`,
+        'padding:2px 4px',
+      ].join(';');
+      const longest = value.split('\n').reduce((a, b) => (b.length > a.length ? b : a), '');
+      probe.textContent = longest || ' ';
+      document.body.appendChild(probe);
+      const neededPx = probe.scrollWidth + 28;
+      document.body.removeChild(probe);
+
+      const maxWidth = Math.max(0.08, 0.98 - block.x);
+      const needed = Math.min(maxWidth, Math.max(0.08, neededPx / canvas.clientWidth));
+      const next = Math.max(baseWidth, needed);
+      if (next > baseWidth + 0.005) {
+        setLocalWidth(next);
+        if (widthTimer.current) window.clearTimeout(widthTimer.current);
+        widthTimer.current = window.setTimeout(() => onWidthChange(next), SAVE_DEBOUNCE_MS);
+      }
+      return next;
+    },
+    [block.fontSize, block.x, onWidthChange],
+  );
+
+  useEffect(() => {
+    if (editing) {
+      fitContent(text, localWidth);
+      requestAnimationFrame(() => areaRef.current?.focus());
+    }
+  }, [editing, fitContent, localWidth, text]);
+
+  const clearHold = () => {
+    if (holdTimer.current) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    holdOrigin.current = null;
+  };
+
+  const beginDrag = (e: ReactPointerEvent) => {
+    if (dragging.current) return;
+    dragging.current = true;
+    clearHold();
+    onDragStart(e);
+  };
+
+  const onBoxPointerDown = (e: ReactPointerEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button,textarea')) return;
+    e.stopPropagation();
+    onSelect();
+    dragging.current = false;
+    holdOrigin.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    holdTimer.current = window.setTimeout(() => {
+      beginDrag(e);
+    }, 220);
+  };
+
+  const onBoxPointerMove = (e: ReactPointerEvent) => {
+    const origin = holdOrigin.current;
+    if (!origin || origin.pointerId !== e.pointerId || dragging.current) return;
+    const dist = Math.hypot(e.clientX - origin.x, e.clientY - origin.y);
+    if (dist > 8) beginDrag(e);
+  };
+
+  const onBoxPointerUp = (e: ReactPointerEvent) => {
+    const wasDragging = dragging.current;
+    clearHold();
+    dragging.current = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    if (!wasDragging && !editing) {
+      // short tap opens editor
+      onEdit();
+    }
+  };
+
   return (
     <div
+      ref={rootRef}
       className={`sheet-text ${selected ? 'selected' : ''} ${editing ? 'editing' : ''}`}
       style={{
         left: `${block.x * 100}%`,
         top: `${block.y * 100}%`,
-        width: `${block.width * 100}%`,
+        width: `${localWidth * 100}%`,
         fontSize: block.fontSize,
         textAlign: block.align,
       }}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        if (e.button !== 0) return;
-        onSelect();
-        if (!editing) onDragStart(e);
-      }}
+      onPointerDown={onBoxPointerDown}
+      onPointerMove={onBoxPointerMove}
+      onPointerUp={onBoxPointerUp}
+      onPointerCancel={onBoxPointerUp}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onEdit();
       }}
     >
+      <div className="sheet-text-chrome">
+        <button
+          type="button"
+          className="sheet-text-drag"
+          aria-label="Переместить текст"
+          title="Зажмите и перетащите"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (e.button !== 0) return;
+            onSelect();
+            beginDrag(e);
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          }}
+        >
+          ⠿
+        </button>
+        <button
+          type="button"
+          className="sheet-text-close"
+          aria-label="Удалить текстовый блок"
+          title="Удалить"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
       {editing ? (
         <textarea
+          ref={areaRef}
           value={text}
           autoFocus
           rows={Math.max(1, text.split('\n').length)}
           onChange={(e) => {
-            setText(e.target.value);
-            onLocalText(e.target.value);
+            const next = e.target.value;
+            setText(next);
+            onLocalText(next);
+            fitContent(next, localWidth);
           }}
           onBlur={onCommit}
           onKeyDown={(e) => {
             e.stopPropagation();
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              onCommit();
-            }
+            // Enter inserts a newline; do not blur/submit.
             if (e.key === 'Escape') {
               e.preventDefault();
               setText(block.text);
@@ -725,9 +888,10 @@ function TextBlockView({
           onPointerDown={(e) => e.stopPropagation()}
         />
       ) : (
-        <span>{block.text || ' '}</span>
+        <span className="sheet-text-body">{block.text || ' '}</span>
       )}
-      {selected && !editing && (
+
+      {selected && (
         <button
           type="button"
           className="sheet-text-resize"
