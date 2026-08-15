@@ -18,9 +18,7 @@ export function loadConfig(): ServerConfig {
   const nodeEnv = (process.env.NODE_ENV ?? 'development') as ServerConfig['nodeEnv'];
   const port = Number(process.env.PORT ?? 3001);
   const host = process.env.HOST ?? '0.0.0.0';
-  const publicUrl = (
-    process.env.PUBLIC_URL ?? 'https://sk3lis-ip-95-135-228-35.tunnelmole.net'
-  ).replace(/\/$/, '');
+  const publicUrl = (process.env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, '');
   const sessionTtlMs = Number(process.env.SESSION_TTL_MS ?? 86_400_000);
 
   return {
